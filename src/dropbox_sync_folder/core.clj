@@ -3,9 +3,14 @@
             [clojure.edn :as edn]
             [clojure.data.json :as json]
             [clj-http.client :as client]
+            [me.raynes.fs :as fs]
             [clojure.walk :as w]))
 
 
+(def config (->> "config.edn"
+                       io/resource
+                       slurp
+                       edn/read-string))
 
 (defn download-file-request [path] (client/post "https://content.dropboxapi.com/2/files/download"
                                         {:headers {"Authorization" (str "Bearer " (:access-token config))
@@ -13,14 +18,9 @@
                                          :as :byte-array
                                          }))
 
-(defn write-file []
-  (with-open [out (io/output-stream (io/file "./1.txt"))]
-    (.write out (:body (download-file-request "/hello/1.txt")))))
-
-(def config (->> "config.edn"
-                       io/resource
-                       slurp
-                       edn/read-string))
+(defn download-file [path]
+  (with-open [out (io/output-stream (io/file (str "./download/" (fs/base-name path))))]
+    (.write out (:body (download-file-request path)))))
 
 (def response (client/post "https://api.dropboxapi.com/2/files/list_folder"
                            {:body (json/write-str {:path "/hello"})
@@ -33,9 +33,11 @@
 (def files (->> (:body response)
                 json/read-str
                 w/keywordize-keys
-                :entries))
+                :entries
+                (map :path_display)))
 
 (defn -main
-  "I don't do a whole lot...yet."
   [& args]
-    (println "hello"))
+    (do
+      (map #(download-file %) files)
+      (println "download completed")))
