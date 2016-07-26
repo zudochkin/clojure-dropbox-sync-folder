@@ -6,6 +6,6 @@
   :dependencies [
                  [org.clojure/clojure "1.8.0"]
                  [org.clojure/data.json "0.2.6"]
-                 [me.raynes/fs "1.4.6"]
                  [clj-http "2.2.0"]]
-  :main dropbox-sync-folder.core)
+  :main dropbox-sync-folder.core
+  :aot :all)

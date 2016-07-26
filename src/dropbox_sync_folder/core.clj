@@ -1,34 +1,39 @@
 (ns dropbox-sync-folder.core
+  (:gen-class)
   (:require [clojure.java.io :as io]
             [clojure.edn :as edn]
             [clojure.data.json :as json]
             [clj-http.client :as client]
-            [me.raynes.fs :as fs]
             [clojure.walk :as w]))
 
+(def downloadable-path "/hello")
+(def config (->> "config.edn" io/resource slurp edn/read-string))
+(def access-token (str "Bearer " (:access-token config)))
 
-(def config (->> "config.edn"
-                       io/resource
-                       slurp
-                       edn/read-string))
+(defn download-file-request
+  [path]
+  (client/post "https://content.dropboxapi.com/2/files/download"
+               {:headers {"Authorization" access-token
+                          "Dropbox-API-Arg" (json/write-str {:path path})}
+                :as :byte-array}))
 
-(defn download-file-request [path] (client/post "https://content.dropboxapi.com/2/files/download"
-                                        {:headers {"Authorization" (str "Bearer " (:access-token config))
-                                                   "Dropbox-API-Arg" (json/write-str {:path path})}
-                                         :as :byte-array
-                                         }))
+(defn download-file
+  [path]
+  (with-open [out
+              (let [file-path (str "./download" path)]
+                (println (str "Downloading " file-path))
 
-(defn download-file [path]
-  (with-open [out (io/output-stream (io/file (str "./download/" (fs/base-name path))))]
+                ;; mkdir -p file-path
+                (io/make-parents file-path)
+                (io/output-stream (io/file file-path)))]
     (.write out (:body (download-file-request path)))))
 
 (def response (client/post "https://api.dropboxapi.com/2/files/list_folder"
-                           {:body (json/write-str {:path "/hello"})
-                            :headers {"Authorization" (str "Bearer " (:access-token config))
+                           {:body (json/write-str {:path downloadable-path})
+                            :headers {"Authorization" access-token
                                       "Content-Type" "application/json"}
                             :content-type :json
-                            :accept :json
-                            }))
+                            :accept :json}))
 
 (def files (->> (:body response)
                 json/read-str
@@ -36,8 +41,10 @@
                 :entries
                 (map :path_display)))
 
+(defn download-all-files
+  []
+  (pmap (fn [file] (download-file file)) files))
+
 (defn -main
   [& args]
-    (do
-      (map #(download-file %) files)
-      (println "download completed")))
+  (download-all-files))
