@@ -43,7 +43,7 @@
 
 (defn download-all-files
   []
-  (pmap (fn [file] (download-file file)) files))
+  (doseq [[file] (map list files)] (download-file file)))
 
 (defn -main
   [& args]
