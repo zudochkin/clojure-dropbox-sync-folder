@@ -7,5 +7,6 @@
                  [org.clojure/clojure "1.8.0"]
                  [org.clojure/data.json "0.2.6"]
                  [clj-http "2.2.0"]]
+  :plugins [[lein-cljfmt "0.5.3"]]
   :main dropbox-sync-folder.core
   :aot :all)
