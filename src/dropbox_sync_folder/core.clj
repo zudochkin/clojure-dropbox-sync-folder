@@ -28,22 +28,29 @@
                 (io/output-stream (io/file file-path)))]
     (.write out (:body (download-file-request path)))))
 
-(def response (client/post "https://api.dropboxapi.com/2/files/list_folder"
-                           {:body (json/write-str {:path downloadable-path})
-                            :headers {"Authorization" access-token
-                                      "Content-Type" "application/json"}
-                            :content-type :json
-                            :accept :json}))
+(defn response
+  [downloadable-path]
 
-(def files (->> (:body response)
-                json/read-str
-                w/keywordize-keys
-                :entries
-                (map :path_display)))
+  (client/post "https://api.dropboxapi.com/2/files/list_folder"
+               {:body (json/write-str {:path downloadable-path})
+                :headers {"Authorization" access-token
+                          "Content-Type" "application/json"}
+                :content-type :json
+                :accept :json}))
+
+(defn rec
+  [folder]
+
+  (let [entries (->> (:body (response folder)) json/read-str w/keywordize-keys :entries)
+        files-and-folders ((juxt filter remove) #(= (:.tag %) "file") entries)
+        only-files (first files-and-folders)
+        only-folders (second files-and-folders)]
+    (concat only-files (map #(rec (:path_display %)) only-folders))))
 
 (defn download-all-files
   []
-  (doseq [[file] (map list files)] (download-file file)))
+  ;; TODO: try to figure out why doesn't work with simple map
+  (doseq [[file] (map list (flatten (rec downloadable-path)))] (download-file (:path_display file))))
 
 (defn -main
   [& args]
