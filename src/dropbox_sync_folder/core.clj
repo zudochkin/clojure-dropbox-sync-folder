@@ -23,7 +23,6 @@
               (let [file-path (str "./download" path)]
                 (println (str "Downloading " file-path))
 
-                ;; mkdir -p file-path
                 (io/make-parents file-path)
                 (io/output-stream (io/file file-path)))]
     (.write out (:body (download-file-request path)))))
@@ -42,15 +41,16 @@
   [folder]
 
   (let [entries (->> (:body (response folder)) json/read-str w/keywordize-keys :entries)
-        files-and-folders ((juxt filter remove) #(= (:.tag %) "file") entries)
-        only-files (first files-and-folders)
-        only-folders (second files-and-folders)]
+        files-and-folders (group-by (comp keyword :.tag) entries)
+        only-files (:file files-and-folders)
+        only-folders (:folder files-and-folders)]
     (concat only-files (map #(rec (:path_display %)) only-folders))))
 
 (defn download-all-files
   []
-  ;; TODO: try to figure out why doesn't work with simple map
-  (doseq [[file] (map list (flatten (rec downloadable-path)))] (download-file (:path_display file))))
+  (doseq
+    [[file] (map list (flatten (rec downloadable-path)))]
+    (download-file (:path_display file))))
 
 (defn -main
   [& args]
